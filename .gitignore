@@ -1,0 +1,5 @@
+.direnv
+tests/*/main.asm.*
+tests/*/main.obj
+tests/*/main.sym
+

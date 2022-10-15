@@ -1,0 +1,146 @@
+#!/bin/sh
+
+# stolen from pure sh bible
+# deps:
+# tr, xxd, sed and rm
+
+trim_all() {
+    set -f
+    set -- "$*"
+    printf '%s\n' "$*"
+    set +f
+}
+
+fatal() {
+    printf '%s' "$1"
+    exit "$2"
+}
+
+replace() {
+    sed -i "s/$1/$2/" "$3.hex"
+}
+
+trim_string() {
+    trim=${1#"${1%%[![:space:]]*}"}
+    trim=${trim%"${trim##*[![:space:]]}"}
+    printf '%s\n' "$trim"
+}
+
+get_label() {
+    # usage:
+    # get_label "$line_to_parse" "," "r" "$1"
+    text=${1%"${1##*[!"$1"]}"}
+    text=${text##*"$1"}
+    text="$(trim_string "$text")"
+    if [ "$3" = "r" ]; then
+        eval "label_ref_$len=$text"
+        eval printf '%s' "label_ref_$len\R" >> "$4.hex"
+    else
+        eval "label_def_$text=$len"
+    fi
+}
+
+lstrip() {
+    printf '%s\n' "${1##"$2"}"
+}
+
+lower() {
+    tr '[:upper:]' '[:lower:]' < "$1"
+}
+
+# remove_files() {
+#     :
+#     # rm "$1.lower" "$1.hex"
+# }
+
+get_hex() {
+    # usage:
+    # get_hex "x3000"
+    # TODO: check size for hex
+    if [ "$(printf '%.1s' "$1")" = "x" ]; then
+        printf '%s' "$(lstrip "$1" "x")"
+    else
+        if [ "$max_size" -gt "$1" ];then
+            fatal "Number out of range" 1
+        fi
+        printf '%.4x' "$1"
+    fi
+}
+
+max_size=12288
+end=0
+:> "$1.hex"
+lower "$1" > "$1.lower"
+len=1
+while IFS= read -r line; do
+    if [ "$(trim_string "$line")" != "" ]; then
+        line_to_parse="$(trim_all "$(trim_string "$line")")"
+        # printf '%s\n' "$line_to_parse"
+        extra_len=0
+        case "$line_to_parse" in
+        ".orig "*)
+            num="$(lstrip "$line_to_parse" ".orig ")"
+            start_entry="$(get_hex "$num")"
+            printf '%s' "$start_entry" >> "$1.hex"
+        ;;
+        ".fill "*)  
+            num="$(lstrip "$line_to_parse" ".fill ")"
+            printf '%s' "$(get_hex "$num")" >> "$1.hex"
+        ;;
+        "lea r"[0-9]","*)
+            # TODO
+            # 30 00 e0 08 e2 07 e4 06  e6 05 e8 04 ea 03 ec 02 ee 01
+            printf '%s' "e0" >> "$1.hex"
+            get_label "$line_to_parse" "," "r" "$1"
+            # fatal "not implemented yet" 1
+        ;;
+        *" .stringz"*)
+            get_label "$line_to_parse" " " "d"
+        ;;
+        getc)
+            printf '%s' "f020"  >> "$1.hex"
+        ;;
+        out)
+            printf '%s' "f021"  >> "$1.hex"
+        ;;
+        puts)
+            printf '%s' "f022"  >> "$1.hex"
+        ;;
+        in)
+            printf '%s' "f023"  >> "$1.hex"
+        ;;
+        putsp)
+            printf '%s' "f024"  >> "$1.hex"
+        ;;
+        halt)
+            printf '%s' "f025"  >> "$1.hex"
+        ;;
+        .end)
+            echo 1
+            end=1
+        esac
+        len=$(("$len"+1+"$extra_len"))
+    fi
+done < "$1.lower" # already make it lowercase
+if [ "$end" -eq 0 ]; then
+    fatal "no .END directive found" 1
+fi
+cnt=2
+while [ "$cnt" -le "$len" ]; do
+    # printf '%s' "/tmp/$$/label_ref_$cnt"
+    eval "defined=\"\${label_ref_$cnt-UNSET}\"" # save because of lowercase
+    if [ "$defined" != "UNSET" ]; then 
+        label=$(eval printf '%s' "\$label_ref_$cnt")
+        eval "status=\"\${label_def_$label}\""
+        if [ "$status" = "UNSET" ]; then
+            fatal "$label is not defined" 1
+        fi
+        eval "pos=\$((label_def_$label-$cnt-1))"
+        eval replace "label_ref_$cnt\R" "\$(printf '%.2X' \"$pos\")" "$1"
+        printf '%.2X' "$pos"
+    fi
+    cnt=$((cnt+1))
+done
+xxd -r -p < "$1.hex" > "$1.out"
+# remove_files "$@"
+# printf '%s' "$code
