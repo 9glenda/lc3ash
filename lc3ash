@@ -4,7 +4,7 @@
 # deps:
 # tr, xxd, sed and awk
 # it will be less in the future but first i have to get it to work
-debug_state=0
+debug_state="${debug-0}"
 debug() {
     if [ "$debug_state" -eq 1 ];then
         printf 'DEBUG: %s\n' "$1"
@@ -96,6 +96,12 @@ get_hex() {
     fi
 }
 
+get_reg() {
+    # Usage:
+    # get_reg "lea"
+    reg="$(printf '%.1x' "$(("$(printf '%.1s' "$(lstrip "$line_to_parse" "$1 r")")"*2))")" # get the register number,multiply by 2 and convert to hex
+}
+
 max_size=12288
 end=0
 :> "$1.hex"
@@ -116,12 +122,38 @@ while IFS= read -r line; do
             num="$(lstrip "$line_to_parse" ".fill ")"
             printf '%s' "$(get_hex "$num")" >> "$1.hex"
         ;;
-        "lea r"[0-7]","*)
-            # TODO
-            # 30 00 e0 08 e2 07 e4 06  e6 05 e8 04 ea 03 ec 02 ee 01
-            printf '%s' "e0" >> "$1.hex"
+        "ld r"[0-7]","*)
+            get_reg "ld"
+            debug "register (ld): $reg"
+            printf '%s' "2$reg" >> "$1.hex"
             get_label "$line_to_parse" "," "r" "$1"
-            # fatal "not implemented yet" 1
+        ;; 
+        "ldr r"[0-7]","*)
+            fatal "not implemented yet" # FIXME
+        ;;
+        "ldi r"[0-7]","*)
+            get_reg "ldi"
+            debug "register (ldi): $reg"
+            printf '%s' "a$reg" >> "$1.hex"
+            get_label "$line_to_parse" "," "r" "$1"
+        ;;
+        "lea r"[0-7]","*)
+            get_reg "lea"
+            debug "register (lea): $reg"
+            printf '%s' "e$reg" >> "$1.hex"
+            get_label "$line_to_parse" "," "r" "$1"
+        ;;
+        "st r"[0-7]","*)
+            get_reg "st"
+            debug "register (st): $reg"
+            printf '%s' "3$reg" >> "$1.hex"
+            get_label "$line_to_parse" "," "r" "$1"
+        ;;
+        "sti r"[0-7]","*)
+            get_reg "sti"
+            debug "register (sti): $reg"
+            printf '%s' "b$reg" >> "$1.hex"
+            get_label "$line_to_parse" "," "r" "$1"
         ;;
         *" .stringz "*)
             get_label "$line_to_parse" " " "d"
