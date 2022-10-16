@@ -251,4 +251,3 @@ while [ "$cnt" -le "$len" ]; do
 done
 xxd -r -p < "$1.hex" > "$1.out" # FIXME
 # remove_files "$@"
-# printf '%s' "$code
