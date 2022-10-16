@@ -17,7 +17,7 @@ test() {
   fi
   rm "tests/$1/main.asm.out" "tests/$1/main.obj" "tests/$1/main.sym"
 }
-shellcheck lc3ash test.sh
+shellcheck -s sh lc3ash test.sh
 test getc
 test out
 test puts
