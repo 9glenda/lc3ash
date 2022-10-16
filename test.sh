@@ -15,3 +15,6 @@ shellcheck lc3ash
 test tests/halt
 test tests/halt2
 test tests/fill
+test tests/helloworld
+test tests/2labels
+test tests/3labels

@@ -2,12 +2,24 @@
 
 # stolen from pure sh bible
 # deps:
-# tr, xxd, sed and rm
+# tr, xxd, sed and awk
+# it will be less in the future but first i have to get it to work
 
 trim_all() {
     set -f
     set -- "$*"
     printf '%s\n' "$*"
+    set +f
+}
+
+trim_quotes() {
+    set -f
+    old_ifs=$IFS
+    IFS=\"\'
+    set -- "$1"
+    IFS=
+    printf '%s\n' "$*"
+    IFS=$old_ifs 
     set +f
 }
 
@@ -20,6 +32,10 @@ replace() {
     sed -i "s/$1/$2/" "$3.hex"
 }
 
+first() {
+    printf '%s' "$1" | awk '{print $1;}'
+}
+
 trim_string() {
     trim=${1#"${1%%[![:space:]]*}"}
     trim=${trim%"${trim##*[![:space:]]}"}
@@ -29,14 +45,21 @@ trim_string() {
 get_label() {
     # usage:
     # get_label "$line_to_parse" "," "r" "$1"
-    text=${1%"${1##*[!"$1"]}"}
-    text=${text##*"$1"}
-    text="$(trim_string "$text")"
-    if [ "$3" = "r" ]; then
-        eval "label_ref_$len=$text"
+    # $text is the label ig
+    if [ "$3" = "r" ]; then 
+        text=${1%"${1##*[!"$2"]}"}
+        text=${text##*"$2"}
+        text="$(trim_string "$text")" 
+        echo "label_ref: $text"
+        eval echo "label_ref_$len=\$text" 
+        eval "label_ref_$len=\$text"
         eval printf '%s' "label_ref_$len\R" >> "$4.hex"
-    else
-        eval "label_def_$text=$len"
+    else 
+        text=$(first "$1")
+        echo "label_def: $text"
+        eval echo "label_def_$text=\$len"
+        eval "label_def_$text=\$len"
+        # printf '%s' "$text"
     fi
 }
 
@@ -94,8 +117,26 @@ while IFS= read -r line; do
             get_label "$line_to_parse" "," "r" "$1"
             # fatal "not implemented yet" 1
         ;;
-        *" .stringz"*)
+        *" .stringz "*)
             get_label "$line_to_parse" " " "d"
+            # stck overflow https://stackoverflow.com/questions/51052475/how-to-iterate-over-the-characters-of-a-string-in-a-posix-shell-script
+            tmp="$(lstrip "$line_to_parse" "$text .stringz ")"
+            tmp="${tmp##?}" # remove first character
+            tmp="${tmp%%?}" # remove last character
+            while [ -n "$tmp" ]; do
+                rest="${tmp#?}"
+                first="${tmp%"$rest"}"
+                # printf '%s' "$first"
+                # printf '00'
+                LC_CTYPE=C printf '00%.2x' "'$first" >> "$1.hex"
+                extra_len=$((len+1))
+                # printf '\n'
+                tmp="$rest"
+            done
+            # extra_len=$((extra_len-2))
+            printf '0000' >> "$1.hex"
+            echo "extra_len: $extra_len"
+            # printf '%s' "00680000" >> "$1.hex"
         ;;
         getc)
             printf '%s' "f020"  >> "$1.hex"
@@ -120,6 +161,7 @@ while IFS= read -r line; do
             end=1
         esac
         len=$(("$len"+1+"$extra_len"))
+        extra_len=0
     fi
 done < "$1.lower" # already make it lowercase
 if [ "$end" -eq 0 ]; then
@@ -135,9 +177,10 @@ while [ "$cnt" -le "$len" ]; do
         if [ "$status" = "UNSET" ]; then
             fatal "$label is not defined" 1
         fi
+        eval echo "pos=\$((label_def_$label-$cnt-1))"
         eval "pos=\$((label_def_$label-$cnt-1))"
         eval replace "label_ref_$cnt\R" "\$(printf '%.2X' \"$pos\")" "$1"
-        printf '%.2X' "$pos"
+        # printf '%.2X' "$pos"
     fi
     cnt=$((cnt+1))
 done
