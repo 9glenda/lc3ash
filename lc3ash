@@ -98,8 +98,8 @@ get_hex() {
 
 get_reg() {
     # Usage:
-    # get_reg "lea"
-    reg="$(printf '%.1x' "$(("$(printf '%.1s' "$(lstrip "$line_to_parse" "$1 r")")"*2))")" # get the register number,multiply by 2 and convert to hex
+    # get_reg "lea" "2" "1" # to multiply with 4 # numbes being 1 in size
+    reg="$(printf "$(eval printf '%s' "%.$3\x")" "$(("$(printf "$(eval printf '%s' "%.$3\s")" "$(lstrip "$line_to_parse" "$1 r")")"*"$2"))")" # get the register number,multiply by 2 and convert to hex
 }
 
 max_size=12288
@@ -123,7 +123,7 @@ while IFS= read -r line; do
             printf '%s' "$(get_hex "$num")" >> "$1.hex"
         ;;
         "ld r"[0-7]","*)
-            get_reg "ld"
+            get_reg "ld" "2" "1"
             debug "register (ld): $reg"
             printf '%s' "2$reg" >> "$1.hex"
             get_label "$line_to_parse" "," "r" "$1"
@@ -132,28 +132,33 @@ while IFS= read -r line; do
             fatal "not implemented yet" # FIXME
         ;;
         "ldi r"[0-7]","*)
-            get_reg "ldi"
+            get_reg "ldi" "2" "1"
             debug "register (ldi): $reg"
             printf '%s' "a$reg" >> "$1.hex"
             get_label "$line_to_parse" "," "r" "$1"
         ;;
         "lea r"[0-7]","*)
-            get_reg "lea"
+            get_reg "lea" "2" "1"
             debug "register (lea): $reg"
             printf '%s' "e$reg" >> "$1.hex"
             get_label "$line_to_parse" "," "r" "$1"
         ;;
         "st r"[0-7]","*)
-            get_reg "st"
+            get_reg "st" "2" "1"
             debug "register (st): $reg"
             printf '%s' "3$reg" >> "$1.hex"
             get_label "$line_to_parse" "," "r" "$1"
         ;;
         "sti r"[0-7]","*)
-            get_reg "sti"
+            get_reg "sti" "2" "1"
             debug "register (sti): $reg"
             printf '%s' "b$reg" >> "$1.hex"
             get_label "$line_to_parse" "," "r" "$1"
+        ;;
+        "jmp r"[0-7])
+            get_reg "jmp" "4" "2"
+            debug "register (jmp): $reg"
+            printf 'c%s0' "$reg" >> "$1.hex"
         ;;
         *" .stringz "*)
             get_label "$line_to_parse" " " "d"

@@ -27,5 +27,6 @@ test ld
 test ldi
 test st
 test sti
+test jmp
 test big_file
 printf 'TESTS FAILED: (%s/%s)' "$failed" "$tests"
