@@ -4,6 +4,11 @@
 # deps:
 # tr, xxd, sed and awk
 # it will be less in the future but first i have to get it to work
+
+if [ "$1" = "" ]; then
+    printf 'USAGE: %s <filename>' "$0"
+    exit 0
+fi
 debug_state="${debug-0}"
 debug() {
     if [ "$debug_state" -eq 1 ];then
@@ -75,6 +80,7 @@ lstrip() {
 
 lower() {
     tr '[:upper:]' '[:lower:]' < "$1" # FIXME
+    printf '\n'
 }
 
 # remove_files() {
