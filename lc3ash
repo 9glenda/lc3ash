@@ -99,6 +99,7 @@ get_hex() {
 get_reg() {
     # Usage:
     # get_reg "lea" "2" "1" # to multiply with 4 # numbes being 1 in size
+    # shellcheck disable=SC2059
     reg="$(printf "$(eval printf '%s' "%.$3\x")" "$(("$(printf "$(eval printf '%s' "%.$3\s")" "$(lstrip "$line_to_parse" "$1 r")")"*"$2"))")" # get the register number,multiply by 2 and convert to hex
 }
 
@@ -106,6 +107,7 @@ max_size=12288
 end=0
 :> "$1.hex"
 lower "$1" > "$1.lower"
+# printf '%s' "$lower_text" >
 len=1
 while IFS= read -r line; do
     if [ "$(trim_string "$line")" != "" ]; then
@@ -119,6 +121,7 @@ while IFS= read -r line; do
             printf '%s' "$start_entry" >> "$1.hex"
         ;;
         ".fill "*)  
+            # FIXME: fill label
             num="$(lstrip "$line_to_parse" ".fill ")"
             printf '%s' "$(get_hex "$num")" >> "$1.hex"
         ;;
@@ -180,6 +183,18 @@ while IFS= read -r line; do
             debug "extra_len: $extra_len"
             # printf '%s' "00680000" >> "$1.hex"
         ;;
+        *" .fill "*)
+            fatal "not implemented yet" # FIXME
+            get_label "$line_to_parse" " " "d"
+            # stck overflow https://stackoverflow.com/questions/51052475/how-to-iterate-over-the-characters-of-a-string-in-a-posix-shell-script
+            tmp="$(lstrip "$line_to_parse" "$text .fill ")"
+            tmp="${tmp##?}" # remove first character
+            tmp="${tmp%%?}" # remove last character
+
+            # printf '0000' >> "$1.hex"
+            debug "extra_len: $extra_len"
+            # printf '%s' "00680000" >> "$1.hex"
+        ;;
         getc)
             printf '%s' "f020"  >> "$1.hex"
         ;;
@@ -200,6 +215,7 @@ while IFS= read -r line; do
         ;;
         .end)
             end=1
+            break
         esac
         len=$(("$len"+1+"$extra_len"))
         extra_len=0
@@ -212,9 +228,11 @@ cnt=2
 while [ "$cnt" -le "$len" ]; do
     # printf '%s' "/tmp/$$/label_ref_$cnt"
     eval "defined=\"\${label_ref_$cnt-UNSET}\"" # save because of lowercase
+    # shellcheck disable=SC2154
     if [ "$defined" != "UNSET" ]; then 
         label=$(eval printf '%s' "\$label_ref_$cnt")
         eval "status=\"\${label_def_$label}\""
+        # shellcheck disable=SC2154
         if [ "$status" = "UNSET" ]; then
             fatal "$label is not defined" 1
         fi
