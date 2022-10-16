@@ -4,6 +4,12 @@
 # deps:
 # tr, xxd, sed and awk
 # it will be less in the future but first i have to get it to work
+debug_state=0
+debug() {
+    if [ "$debug_state" -eq 1 ];then
+        printf 'DEBUG: %s\n' "$1"
+    fi
+}
 
 trim_all() {
     set -f
@@ -29,11 +35,11 @@ fatal() {
 }
 
 replace() {
-    sed -i "s/$1/$2/" "$3.hex"
+    sed -i "s/$1/$2/" "$3.hex" # FIXME
 }
 
 first() {
-    printf '%s' "$1" | awk '{print $1;}'
+    printf '%s' "$1" | awk '{print $1;}' # FIXME
 }
 
 trim_string() {
@@ -50,14 +56,14 @@ get_label() {
         text=${1%"${1##*[!"$2"]}"}
         text=${text##*"$2"}
         text="$(trim_string "$text")" 
-        echo "label_ref: $text"
-        eval echo "label_ref_$len=\$text" 
+        debug "label_ref: $text"
+        debug "$(eval printf '%s' "label_ref_$len=\$text")"
         eval "label_ref_$len=\$text"
         eval printf '%s' "label_ref_$len\R" >> "$4.hex"
     else 
         text=$(first "$1")
-        echo "label_def: $text"
-        eval echo "label_def_$text=\$len"
+        debug "label_def: $text"
+        debug "$(eval printf '%s' "label_def_$text=\$len")"
         eval "label_def_$text=\$len"
         # printf '%s' "$text"
     fi
@@ -68,7 +74,7 @@ lstrip() {
 }
 
 lower() {
-    tr '[:upper:]' '[:lower:]' < "$1"
+    tr '[:upper:]' '[:lower:]' < "$1" # FIXME
 }
 
 # remove_files() {
@@ -110,7 +116,7 @@ while IFS= read -r line; do
             num="$(lstrip "$line_to_parse" ".fill ")"
             printf '%s' "$(get_hex "$num")" >> "$1.hex"
         ;;
-        "lea r"[0-9]","*)
+        "lea r"[0-7]","*)
             # TODO
             # 30 00 e0 08 e2 07 e4 06  e6 05 e8 04 ea 03 ec 02 ee 01
             printf '%s' "e0" >> "$1.hex"
@@ -129,13 +135,12 @@ while IFS= read -r line; do
                 # printf '%s' "$first"
                 # printf '00'
                 LC_CTYPE=C printf '00%.2x' "'$first" >> "$1.hex"
-                extra_len=$((len+1))
+                extra_len=$((extra_len+1))
                 # printf '\n'
                 tmp="$rest"
             done
-            # extra_len=$((extra_len-2))
             printf '0000' >> "$1.hex"
-            echo "extra_len: $extra_len"
+            debug "extra_len: $extra_len"
             # printf '%s' "00680000" >> "$1.hex"
         ;;
         getc)
@@ -157,7 +162,6 @@ while IFS= read -r line; do
             printf '%s' "f025"  >> "$1.hex"
         ;;
         .end)
-            echo 1
             end=1
         esac
         len=$(("$len"+1+"$extra_len"))
@@ -177,13 +181,13 @@ while [ "$cnt" -le "$len" ]; do
         if [ "$status" = "UNSET" ]; then
             fatal "$label is not defined" 1
         fi
-        eval echo "pos=\$((label_def_$label-$cnt-1))"
+        debug "$(eval printf '%s' "pos=\$((label_def_$label-$cnt-1))")"
         eval "pos=\$((label_def_$label-$cnt-1))"
         eval replace "label_ref_$cnt\R" "\$(printf '%.2X' \"$pos\")" "$1"
         # printf '%.2X' "$pos"
     fi
     cnt=$((cnt+1))
 done
-xxd -r -p < "$1.hex" > "$1.out"
+xxd -r -p < "$1.hex" > "$1.out" # FIXME
 # remove_files "$@"
 # printf '%s' "$code
