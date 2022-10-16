@@ -11,7 +11,7 @@
       in
       {
         devShell = with pkgs; mkShell {
-          buildInputs = [ lc3tools ];
+          buildInputs = [ lc3tools shellcheck ];
         };
       });
 }
